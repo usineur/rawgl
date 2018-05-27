@@ -9,6 +9,17 @@
 #include "systemstub.h"
 #include "util.h"
 
+#ifdef __SWITCH__
+#define BTN_A      0
+#define BTN_B      1
+#define BTN_PLUS  10
+#define BTN_MINUS 11
+#define BTN_LEFT  12
+#define BTN_UP    13
+#define BTN_RIGHT 14
+#define BTN_DOWN  15
+#endif
+
 struct SystemStub_SDL : SystemStub {
 
 	static const int kJoystickIndex = 0;
@@ -62,13 +73,20 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	} else {
 		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
+#ifdef __SWITCH__
+	flags = SDL_WINDOW_FULLSCREEN;
+#endif
 	_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowW, windowH, flags);
 	SDL_GetWindowSize(_window, &_w, &_h);
 
 	if (dm->opengl) {
 		_glcontext = SDL_GL_CreateContext(_window);
 	} else {
+#ifdef __SWITCH__
+		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_SOFTWARE);
+#else
 		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
+#endif
 		SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
 		SDL_RenderClear(_renderer);
 	}
@@ -86,7 +104,11 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	if (SDL_NumJoysticks() > 0) {
 		SDL_GameControllerAddMappingsFromFile("gamecontrollerdb.txt");
 		if (SDL_IsGameController(kJoystickIndex)) {
+#ifdef __SWITCH__
+			_controller = 0;
+#else
 			_controller = SDL_GameControllerOpen(kJoystickIndex);
+#endif
 		}
 		if (!_controller) {
 			_joystick = SDL_JoystickOpen(kJoystickIndex);
@@ -273,7 +295,49 @@ void SystemStub_SDL::processEvents() {
 		case SDL_JOYBUTTONDOWN:
 		case SDL_JOYBUTTONUP:
 			if (_joystick) {
+#ifdef __SWITCH__
+				const bool pressed = (ev.jbutton.state == SDL_PRESSED);
+				switch (ev.jbutton.button) {
+				case BTN_LEFT:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_LEFT;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_LEFT;
+					break;
+				case BTN_RIGHT:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_RIGHT;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_RIGHT;
+					break;
+				case BTN_UP:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_UP;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_UP;
+					break;
+				case BTN_DOWN:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_DOWN;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_DOWN;
+					break;
+				case BTN_A:
+				case BTN_B:
+					_pi.button = pressed;
+					break;
+				case BTN_MINUS:
+					_pi.code = pressed;
+					break;
+				case BTN_PLUS:
+					_pi.pause = pressed;
+					break;
+				default:
+					break;
+				}
+#else
 				_pi.button = (ev.jbutton.state == SDL_PRESSED);
+#endif
 			}
 			break;
 		case SDL_CONTROLLERAXISMOTION:

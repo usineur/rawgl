@@ -43,7 +43,11 @@ static uint8_t *convertMono8ToWav(const uint8_t *data, int freq, int size, const
 
 struct Mixer_impl {
 
+#ifdef __SWITCH__
+	static const int kMixFreq = 48000;
+#else
 	static const int kMixFreq = 44100;
+#endif
 	static const int kMixBufSize = 4096;
 	static const int kMixChannels = 4;
 

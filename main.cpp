@@ -58,9 +58,11 @@ static Graphics *createGraphics(int type) {
 	case GRAPHICS_SOFTWARE:
 		debug(DBG_INFO, "Using software graphics");
 		return GraphicsSoft_create();
+#ifndef __SWITCH__
 	case GRAPHICS_GL:
 		debug(DBG_INFO, "Using GL graphics");
 		return GraphicsGL_create();
+#endif
 	}
 	return 0;
 }
@@ -81,7 +83,11 @@ static const int DEFAULT_WINDOW_H = 400;
 
 #undef main
 int main(int argc, char *argv[]) {
+#ifdef __SWITCH__
+	const char *dataPath = "data";
+#else
 	char *dataPath = 0;
+#endif
 	int part = 16001;
 	Language lang = LANG_FR;
 	int graphicsType = GRAPHICS_GL;
