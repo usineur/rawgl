@@ -7,6 +7,10 @@
 #include <cstdarg>
 #include "util.h"
 
+#ifdef __SWITCH__
+#define fprintf(stderr, ...) printf(__VA_ARGS__)
+#endif
+
 uint16_t g_debugMask;
 
 void debug(uint16_t cm, const char *msg, ...) {

@@ -28,7 +28,11 @@ bool AifcPlayer::play(int mixRate, const char *path) {
 					const int bits = _f.readUint16BE();
 					_f.read(buf, 10);
 					const int rate = READ_IEEE754(buf);
+#ifdef __SWITCH__
+					if (channels != 2) {
+#else
 					if (channels != 2 || rate != mixRate) {
+#endif
 						warning("Unsupported aifc channels %d rate %d", channels, rate);
 						break;
 					}

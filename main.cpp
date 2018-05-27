@@ -193,6 +193,14 @@ int main(int argc, char *argv[]) {
 	}
 	g_debugMask = DBG_INFO; // | DBG_VIDEO | DBG_SND | DBG_SCRIPT | DBG_BANK | DBG_SER;
 	Engine *e = new Engine(dataPath, part);
+#ifdef __SWITCH__
+	graphicsType = GRAPHICS_SOFTWARE;
+	defaultGraphics = false;
+	dm.opengl = false;
+	if (e->_res.getDataType() == Resource::DT_3DO) {
+		Graphics::_use565 = true;
+	}
+#else
 	if (defaultGraphics) {
 		// if not set, use original software graphics for 199x editions and GL for the anniversary and 3DO versions
 		graphicsType = getGraphicsType(e->_res.getDataType());
@@ -202,6 +210,7 @@ int main(int argc, char *argv[]) {
 		graphicsType = GRAPHICS_SOFTWARE;
 		Graphics::_use565 = true;
 	}
+#endif
 	Graphics *graphics = createGraphics(graphicsType);
 	SystemStub *stub = SystemStub_SDL_create();
 	stub->init(e->getGameTitle(lang), &dm);
