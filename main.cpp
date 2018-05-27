@@ -6,6 +6,9 @@
 
 #include <getopt.h>
 #include <sys/stat.h>
+#ifdef __SWITCH__
+#include <switch.h>
+#endif
 #include "engine.h"
 #include "graphics.h"
 #include "resource.h"
@@ -89,7 +92,33 @@ int main(int argc, char *argv[]) {
 	char *dataPath = 0;
 #endif
 	int part = 16001;
+#ifdef __SWITCH__
+	Language lang;
+	u64 tlc = 0;
+	s32 lc = 0;
+	setInitialize();
+	setGetSystemLanguage(&tlc);
+	setMakeLanguage(tlc, &lc);
+	switch (lc) {
+	case SetLanguage_FR:
+		lang = LANG_FR;
+		break;
+	case SetLanguage_DE:
+		lang = LANG_DE;
+		break;
+	case SetLanguage_ES:
+		lang = LANG_ES;
+		break;
+	case SetLanguage_IT:
+		lang = LANG_IT;
+		break;
+	default:
+		lang = LANG_US;
+		break;
+	}
+#else
 	Language lang = LANG_FR;
+#endif
 	int graphicsType = GRAPHICS_GL;
 	DisplayMode dm;
 	dm.mode   = DisplayMode::WINDOWED;
