@@ -59,6 +59,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}.elf
 
 add_custom_target(${CMAKE_PROJECT_NAME}.nro
   DEPENDS ${CMAKE_PROJECT_NAME}.elf
-  COMMAND nacptool --create "Another World" "usineur" "1.1" ${CMAKE_PROJECT_NAME}.nacp
+  COMMAND nacptool --create "Another World" "usineur" "1.2" ${CMAKE_PROJECT_NAME}.nacp
   COMMAND elf2nro ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.nro --icon=${CMAKE_SOURCE_DIR}/res/icon.jpg --nacp=${CMAKE_PROJECT_NAME}.nacp
 )
