@@ -10,7 +10,7 @@ set(CMAKE_RANLIB "${DEVKITPRO}/devkitA64/bin/aarch64-none-elf-gcc-ranlib" CACHE 
 
 set(COMMON_FLAGS "-march=armv8-a -mtune=cortex-a57 -mtp=soft -fPIE -I${DEVKITPRO}/libnx/include -I${DEVKITPRO}/portlibs/switch/include")
 set(CMAKE_C_FLAGS "${COMMON_FLAGS}" CACHE STRING "C flags")
-set(CMAKE_CXX_FLAGS "${COMMON_FLAGS} -fpermissive -fno-rtti -fno-exceptions -std=gnu++11" CACHE STRING "C++ flags")
+set(CMAKE_CXX_FLAGS "${COMMON_FLAGS} -fpermissive -fno-rtti -fno-exceptions" CACHE STRING "C++ flags")
 
 set(CMAKE_FIND_ROOT_PATH ${DEVKITPRO} ${DEVKITPRO}/devkitA64 ${DEVKITPRO}/libnx ${DEVKITPRO}/portlibs/switch)
 set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
