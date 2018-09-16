@@ -35,6 +35,7 @@ struct SystemStub_SDL : SystemStub {
 	SDL_Texture *_texture;
 	SDL_Joystick *_joystick;
 	SDL_GameController *_controller;
+	int _screenshot;
 
 	SystemStub_SDL();
 	virtual ~SystemStub_SDL() {}
@@ -62,6 +63,7 @@ SystemStub_SDL::SystemStub_SDL()
 void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_JOYSTICK | SDL_INIT_GAMECONTROLLER);
 	SDL_ShowCursor(SDL_DISABLE);
+	// SDL_SetHint(SDL_HINT_RENDER_SCALE_QUALITY, "1");
 
 	int windowW = 0;
 	int windowH = 0;
@@ -114,6 +116,7 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 			_joystick = SDL_JoystickOpen(kJoystickIndex);
 		}
 	}
+	_screenshot = 1;
 }
 
 void SystemStub_SDL::fini() {
@@ -144,6 +147,9 @@ void SystemStub_SDL::prepareScreen(int &w, int &h, float ar[4]) {
 	ar[1] = _aspectRatio[1];
 	ar[2] = _aspectRatio[2];
 	ar[3] = _aspectRatio[3];
+	if (_renderer) {
+		SDL_RenderClear(_renderer);
+	}
 }
 
 void SystemStub_SDL::updateScreen() {
@@ -208,6 +214,21 @@ void SystemStub_SDL::processEvents() {
 			case SDLK_RETURN:
 				_pi.button = false;
 				break;
+			case SDLK_s:
+				_pi.screenshot = true;
+				break;
+			case SDLK_c:
+				_pi.code = true;
+				break;
+			case SDLK_p:
+				_pi.pause = true;
+				break;
+			case SDLK_AC_BACK:
+				_pi.back = true;
+				break;
+			case SDLK_AC_HOME:
+				_pi.quit = true;
+				break;
 			default:
 				break;
 			}
@@ -242,12 +263,6 @@ void SystemStub_SDL::processEvents() {
 			case SDLK_SPACE:
 			case SDLK_RETURN:
 				_pi.button = true;
-				break;
-			case SDLK_c:
-				_pi.code = true;
-				break;
-			case SDLK_p:
-				_pi.pause = true;
 				break;
 			default:
 				break;
@@ -375,7 +390,52 @@ void SystemStub_SDL::processEvents() {
 		case SDL_CONTROLLERBUTTONDOWN:
 		case SDL_CONTROLLERBUTTONUP:
 			if (_controller) {
-				_pi.button = (ev.jbutton.state == SDL_PRESSED);
+				const bool pressed = (ev.cbutton.state == SDL_PRESSED);
+				switch (ev.cbutton.button) {
+				case SDL_CONTROLLER_BUTTON_BACK:
+					_pi.back = pressed;
+					break;
+				case SDL_CONTROLLER_BUTTON_GUIDE:
+					_pi.code = pressed;
+					break;
+				case SDL_CONTROLLER_BUTTON_START:
+					_pi.pause = pressed;
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_UP:
+					if (pressed) {
+						_pi.dirMask |= PlayerInput::DIR_UP;
+					} else {
+						_pi.dirMask &= ~PlayerInput::DIR_UP;
+					}
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_DOWN:
+					if (pressed) {
+						_pi.dirMask |= PlayerInput::DIR_DOWN;
+					} else {
+						_pi.dirMask &= ~PlayerInput::DIR_DOWN;
+					}
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_LEFT:
+					if (pressed) {
+						_pi.dirMask |= PlayerInput::DIR_LEFT;
+					} else {
+						_pi.dirMask &= ~PlayerInput::DIR_LEFT;
+					}
+					break;
+				case SDL_CONTROLLER_BUTTON_DPAD_RIGHT:
+					if (pressed) {
+						_pi.dirMask |= PlayerInput::DIR_RIGHT;
+					} else {
+						_pi.dirMask &= ~PlayerInput::DIR_RIGHT;
+					}
+					break;
+				case SDL_CONTROLLER_BUTTON_A:
+				case SDL_CONTROLLER_BUTTON_B:
+				case SDL_CONTROLLER_BUTTON_X:
+				case SDL_CONTROLLER_BUTTON_Y:
+					_pi.button = pressed;
+					break;
+				}
 			}
 			break;
 		default:

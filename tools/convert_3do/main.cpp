@@ -77,17 +77,17 @@ struct OutputBuffer {
 	uint32_t _bufSize;
 };
 
-static uint32_t readInt(FILE *fp) {
+static uint32_t freadUint32BE(FILE *fp) {
 	uint8_t buf[4];
 	fread(buf, sizeof(buf), 1, fp);
-	return readUint32BE(buf);
+	return READ_BE_UINT32(buf);
 }
 
-static uint32_t readTag(FILE *fp, char *type) {
+static uint32_t freadTag(FILE *fp, char *type) {
 	fread(type, 4, 1, fp);
 	uint8_t buf[4];
 	fread(buf, sizeof(buf), 1, fp);
-	return readUint32BE(buf);
+	return READ_BE_UINT32(buf);
 }
 
 static void decodeCine(FILE *fp, const char *name) {
@@ -101,7 +101,7 @@ static void decodeCine(FILE *fp, const char *name) {
 	while (1) {
 		const uint32_t pos = ftell(fp);
 		char tag[4];
-		const uint32_t size = readTag(fp, tag);
+		const uint32_t size = freadTag(fp, tag);
 		if (feof(fp)) {
 			break;
 		}
@@ -113,12 +113,12 @@ static void decodeCine(FILE *fp, const char *name) {
 				fseek(fp, 4, SEEK_CUR);
 				char compression[4];
 				fread(compression, 4, 1, fp);
-				uint32_t height = readInt(fp);
-				uint32_t width = readInt(fp);
+				uint32_t height = freadUint32BE(fp);
+				uint32_t width = freadUint32BE(fp);
 				out.setup(width, height, &decoder);
 			} else if (memcmp(type, "FRME", 4) == 0) {
-				uint32_t duration = readInt(fp);
-				uint32_t frameSize = readInt(fp);
+				uint32_t duration = freadUint32BE(fp);
+				uint32_t frameSize = freadUint32BE(fp);
 				uint8_t *frameBuf = (uint8_t *)malloc(frameSize);
 				if (frameBuf) {
 					fread(frameBuf, 1, frameSize, fp);
@@ -238,6 +238,15 @@ static void decodeBitmap(FILE *fp, int num) {
 			} else {
 				fprintf(stderr, "Unexpected decoded size %d\n", decodedSize);
 			}
+		} else if (dataSize == 320 * 200 * sizeof(uint16_t)) {
+			char name[64];
+			snprintf(name, sizeof(name), "%s/File%03d.bmp", OUT, num);
+			FILE *fp = fopen(name, "wb");
+			if (fp) {
+				deinterlace555(data, 320, 200, _bitmapDei555);
+				writeBitmap555(fp, _bitmapDei555, 320, 200);
+				fclose(fp);
+			}
 		} else {
 			fprintf(stderr, "Unexpected header %x%x%x%x\n", data[0], data[1], data[2], data[3]);
 		}
@@ -254,16 +263,16 @@ static const char *kSDX = "SDX22:1 Squareroot-Delta-Exact compression";
 
 static void decodeSong(FILE *fp, int num) {
 	uint8_t buf[64];
-	int count, offset, formSize, dataSize;
+	int count, offset, formSize, dataSize, rate = 0;
 
 	count = fread(buf, 1, 12, fp);
 	if (count == 12 && memcmp(buf, "FORM", 4) == 0 && memcmp(buf + 8, "AIFC", 4) == 0) {
-		formSize = readUint32BE(buf + 4);
+		formSize = READ_BE_UINT32(buf + 4);
 		for (offset = 12; offset < formSize; offset += dataSize + 8) {
 			fseek(fp, offset, SEEK_SET);
 
 			count = fread(buf, 1, 8, fp);
-			dataSize = readUint32BE(buf + 4);
+			dataSize = READ_BE_UINT32(buf + 4);
 
 			if (memcmp(buf, "FVER", 4) == 0) {
 				continue;
@@ -272,13 +281,12 @@ static void decodeSong(FILE *fp, int num) {
 				assert(dataSize < (int)sizeof(buf));
 				count = fread(buf, 1, dataSize, fp);
 
-				const int channels = readUint16BE(buf);
-				const int samplesPerFrame = readUint32BE(buf + 2);
-				const int bits = readUint16BE(buf + 6);
-				int rate = 0;
+				const int channels = READ_BE_UINT16(buf);
+				const int samplesPerFrame = READ_BE_UINT32(buf + 2);
+				const int bits = READ_BE_UINT16(buf + 6);
 				{
 					const uint8_t *ieee754 = buf + 8;
-					const uint32_t m = readUint32BE(ieee754 + 2);
+					const uint32_t m = READ_BE_UINT32(ieee754 + 2);
 					const int e = 30 - ieee754[1];
 					rate = (m >> e);
 				}
@@ -313,7 +321,7 @@ static void decodeSong(FILE *fp, int num) {
 					snprintf(path, sizeof(path), "%s/song%d.wav", OUT, num);
 					FILE *fp = fopen(path, "wb");
 					if (fp) {
-						writeWav_stereoS16(fp, samples, dataSize);
+						writeWav_stereoS16(fp, samples, dataSize, rate);
 						fclose(fp);
 					}
 					free(samples);
@@ -328,15 +336,108 @@ static void decodeSong(FILE *fp, int num) {
 	}
 }
 
+static void decodeCcb16(int frameWidth, int frameHeight, const uint8_t *dataPtr, uint32_t dataSize, uint16_t *dest) {
+
+	const uint8_t *scanlineStart = dataPtr;
+
+	for (; frameHeight > 0; --frameHeight) {
+
+		const int lineDWordSize = READ_BE_UINT16(scanlineStart) + 2;
+		const uint8_t *scanlineData = scanlineStart + 2;
+
+		int w = frameWidth;
+		while (w > 0) {
+			uint8_t code = *scanlineData++;
+			const int count = (code & 63) + 1;
+			code >>= 6;
+			if (code == 0) {
+				break;
+			}
+			switch (code) {
+			case 1:
+				for (int i = 0; i < count; ++i) {
+					*dest++ = READ_BE_UINT16(scanlineData); scanlineData += 2;
+				}
+				break;
+			case 2:
+				memset(dest, 0, count * sizeof(uint16_t));
+				dest += count;
+				break;
+			case 3: {
+					const uint16_t color = READ_BE_UINT16(scanlineData); scanlineData += 2;
+					for (int i = 0; i < count; ++i) {
+						*dest++ = color;
+					}
+				}
+				break;
+			}
+			w -= count;
+		}
+		assert(w >= 0);
+		if (w > 0) {
+			dest += w;
+		}
+		scanlineStart += lineDWordSize * 4;
+	}
+}
+
+static const uint8_t _ccbBitsPerPixelTable[8] = {
+        0, 1, 2, 4, 6, 8, 16, 0
+};
+
+static void decodeShapeCcb(FILE *fp, const char *shape) {
+	int dataSize;
+	uint8_t *data = readFile(fp, &dataSize);
+	if (data) {
+		int offset = 0;
+
+		uint32_t ccb_Flags = READ_BE_UINT32(data + offset); offset += 4;
+		offset += 4; // ccb_NextPtr
+		uint32_t ccb_CelData = READ_BE_UINT32(data + offset); offset += 4; // ccb_CelData
+		offset += 4; // ccb_PLUTPtr
+		offset += 4; // ccb_X
+		offset += 4; // ccb_Y
+		offset += 4; // ccb_hdx
+		offset += 4; // ccb_hdy
+		offset += 4; // ccb_vdx
+		offset += 4; // ccb_vdy
+		offset += 4; // ccb_ddx
+		offset += 4; // ccb_ddy
+		offset += 4; // ccb_PPMPC;
+		const uint32_t ccb_PRE0 = READ_BE_UINT32(data + offset); offset += 4;
+		const uint32_t ccb_PRE1 = READ_BE_UINT32(data + offset); offset += 4;
+		assert(ccb_CelData == 0x30);
+		assert(ccb_Flags & (1 << 9));
+		const int bpp = _ccbBitsPerPixelTable[ccb_PRE0 & 7];
+		const uint32_t ccbPRE0_height = ((ccb_PRE0 >> 6) & 0x3FF) + 1;
+		const uint32_t ccbPRE1_width  = (ccb_PRE1 & 0x3FF) + 1;
+		assert(bpp == 16);
+
+		decodeCcb16(ccbPRE1_width, ccbPRE0_height, data + offset, dataSize - offset, _bitmapDei555);
+
+		char name[64];
+		snprintf(name, sizeof(name), "%s/%s.bmp", OUT, shape);
+		FILE *out = fopen(name, "wb");
+		if (out) {
+			writeBitmap555(out, _bitmapDei555, ccbPRE1_width, ccbPRE0_height);
+			fclose(out);
+		}
+
+		free(data);
+	}
+}
+
 int main(int argc, char *argv[]) {
 	bool doDecodeSong = false;
 	bool doDecodeBitmap = false;
 	bool doDecodeCine = false;
+	bool doDecodeShape = false;
 	while (1) {
 		static struct option options[] = {
 			{ "decode_song",   no_argument, 0, 1 },
 			{ "decode_bitmap", no_argument, 0, 2 },
 			{ "decode_cine",   no_argument, 0, 3 },
+			{ "decode_shape",  no_argument, 0, 4 },
 			{ 0, 0, 0, 0 }
 		};
 		int index;
@@ -353,6 +454,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 3:
 			doDecodeCine = true;
+			break;
+		case 4:
+			doDecodeShape = true;
 			break;
 		}
 	}
@@ -387,8 +491,8 @@ int main(int argc, char *argv[]) {
 				}
 			}
 			if (doDecodeBitmap) {
-				for (int i = 200; i <= 340; ++i) {
-					snprintf(path, sizeof(path), "%s/File%3d", argv[optind], i);
+				for (int i = 1; i <= 340; ++i) {
+					snprintf(path, sizeof(path), "%s/File%d", argv[optind], i);
 					FILE *fp = fopen(path, "rb");
 					if (fp) {
 						decodeBitmap(fp, i);
@@ -405,6 +509,19 @@ int main(int argc, char *argv[]) {
 					FILE *fp = fopen(path, "rb");
 					if (fp) {
 						decodeCine(fp, cines[i]);
+						fclose(fp);
+					} else {
+						fprintf(stderr, "Failed to open '%s'\n", path);
+					}
+				}
+			}
+			if (doDecodeShape) {
+				static const char *names[] = { "EndShape1", "EndShape2", "PauseShape", "Logo3do", 0 };
+				for (int i = 0; names[i]; ++i) {
+					snprintf(path, sizeof(path), "%s/%s", argv[optind], names[i]);
+					FILE *fp = fopen(path, "rb");
+					if (fp) {
+						decodeShapeCcb(fp, names[i]);
 						fclose(fp);
 					} else {
 						fprintf(stderr, "Failed to open '%s'\n", path);

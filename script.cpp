@@ -104,7 +104,7 @@ void Script::op_ret() {
 
 void Script::op_yieldTask() {
 	debug(DBG_SCRIPT, "Script::op_yieldTask()");
-	_scriptHalted = true;
+	_scriptPaused = true;
 }
 
 void Script::op_jmp() {
@@ -235,7 +235,7 @@ void Script::op_changeTasksState() {
 			*p++ = 0xFFFE;
 		}
 	} else if (a < 2) {
-		uint8_t *p = &_scriptPaused[1][j];
+		uint8_t *p = &_scriptStates[1][j];
 		while (n--) {
 			*p++ = a;
 		}
@@ -289,7 +289,7 @@ void Script::op_updateDisplay() {
 void Script::op_removeTask() {
 	debug(DBG_SCRIPT, "Script::op_removeTask()");
 	_scriptPtr.pc = _res->_segCode + 0xFFFF;
-	_scriptHalted = true;
+	_scriptPaused = true;
 }
 
 void Script::op_drawString() {
@@ -386,7 +386,7 @@ void Script::restartAt(int part, int pos) {
 	}
 	_res->setupPart(part);
 	memset(_scriptTasks, 0xFF, sizeof(_scriptTasks));
-	memset(_scriptPaused, 0, sizeof(_scriptPaused));
+	memset(_scriptStates, 0, sizeof(_scriptStates));
 	_scriptTasks[0][0] = 0;
 	_screenNum = -1;
 	if (pos >= 0) {
@@ -400,13 +400,13 @@ void Script::restartAt(int part, int pos) {
 	_startTime = _timeStamp = _stub->getTimeStamp();
 }
 
-void Script::setupScripts() {
+void Script::setupTasks() {
 	if (_res->_nextPart != 0) {
 		restartAt(_res->_nextPart);
 		_res->_nextPart = 0;
 	}
 	for (int i = 0; i < 0x40; ++i) {
-		_scriptPaused[0][i] = _scriptPaused[1][i];
+		_scriptStates[0][i] = _scriptStates[1][i];
 		uint16_t n = _scriptTasks[1][i];
 		if (n != 0xFFFF) {
 			_scriptTasks[0][i] = (n == 0xFFFE) ? 0xFFFF : n;
@@ -415,25 +415,25 @@ void Script::setupScripts() {
 	}
 }
 
-void Script::runScripts() {
+void Script::runTasks() {
 	for (int i = 0; i < 0x40 && !_stub->_pi.quit; ++i) {
-		if (_scriptPaused[0][i] == 0) {
+		if (_scriptStates[0][i] == 0) {
 			uint16_t n = _scriptTasks[0][i];
 			if (n != 0xFFFF) {
 				_scriptPtr.pc = _res->_segCode + n;
 				_stackPtr = 0;
-				_scriptHalted = false;
-				debug(DBG_SCRIPT, "Script::runScripts() i=0x%02X n=0x%02X", i, n);
-				executeScript();
+				_scriptPaused = false;
+				debug(DBG_SCRIPT, "Script::runTasks() i=0x%02X n=0x%02X", i, n);
+				executeTask();
 				_scriptTasks[0][i] = _scriptPtr.pc - _res->_segCode;
-				debug(DBG_SCRIPT, "Script::runScripts() i=0x%02X pos=0x%X", i, _scriptTasks[0][i]);
+				debug(DBG_SCRIPT, "Script::runTasks() i=0x%02X pos=0x%X", i, _scriptTasks[0][i]);
 			}
 		}
 	}
 }
 
-void Script::executeScript() {
-	while (!_scriptHalted) {
+void Script::executeTask() {
+	while (!_scriptPaused) {
 		uint8_t opcode = _scriptPtr.fetchByte();
 		if (opcode & 0x80) {
 			uint16_t off = ((opcode << 8) | _scriptPtr.fetchByte()) * 2;
@@ -564,7 +564,7 @@ void Script::executeScript() {
 				}
 			}
 			if (opcode > 0x1A) {
-				error("Script::executeScript() ec=0x%X invalid opcode=0x%X", 0xFFF, opcode);
+				error("Script::executeTask() ec=0x%X invalid opcode=0x%X", 0xFFF, opcode);
 			} else {
 				(this->*_opTable[opcode])();
 			}
@@ -572,7 +572,7 @@ void Script::executeScript() {
 	}
 }
 
-void Script::inp_updatePlayer() {
+void Script::updateInput() {
 	_stub->processEvents();
 	if (_res->_currentPart == 16009) {
 		char c = _stub->_pi.lastChar;
@@ -605,7 +605,7 @@ void Script::inp_updatePlayer() {
 	// The password selection screen in the 3DO version accepts both 'action'
 	// and 'jump' buttons. As 'up' is also mapped to 'jump', pressing it selects
 	// the highlighted letter instead of moving the cursor. We zero the jump code.
-	if (_is3DO && _res->_currentPart == 16009) {
+	if (_is3DO && (_res->_currentPart == 16008 || _res->_currentPart == 16009)) {
 		ud = 0;
 	}
 
@@ -650,21 +650,24 @@ void Script::snd_playSound(uint16_t resNum, uint8_t freq, uint8_t vol, uint8_t c
 		_mix->stopSound(channel);
 		return;
 	}
+	if (vol > 63) {
+		vol = 63;
+	}
 	if (_res->getDataType() == Resource::DT_15TH_EDITION) {
 		uint8_t *buf = _res->loadWav(resNum);
 		if (buf) {
-			_mix->playSoundWav(channel & 3, buf, _freqTable[freq], MIN(vol, 63));
+			_mix->playSoundWav(channel & 3, buf, _freqTable[freq], vol);
 		}
 	} else if (_res->getDataType() == Resource::DT_20TH_EDITION || _res->getDataType() == Resource::DT_WIN31) {
 		// ignore sample rate specified by the script, use .wav header value
 		uint8_t *buf = _res->loadWav(resNum);
 		if (buf) {
-			_mix->playSoundWav(channel & 3, buf, 0, MIN(vol, 63));
+			_mix->playSoundWav(channel & 3, buf, 0, vol);
 		}
 	} else if (_res->getDataType() == Resource::DT_3DO) {
 		MemEntry *me = &_res->_memList[resNum];
 		if (me->status == Resource::STATUS_LOADED) {
-			_mix->playSoundAiff(channel & 3, me->bufPtr, MIN(vol, 63));
+			_mix->playSoundAiff(channel & 3, me->bufPtr, vol);
 		}
 	} else if (_res->getDataType() == Resource::DT_MAC) {
 		// TODO
@@ -672,7 +675,7 @@ void Script::snd_playSound(uint16_t resNum, uint8_t freq, uint8_t vol, uint8_t c
 		MemEntry *me = &_res->_memList[resNum];
 		if (me->status == Resource::STATUS_LOADED) {
 			assert(freq < 40);
-			_mix->playSoundRaw(channel & 3, me->bufPtr, _freqTable[freq], MIN(vol, 63));
+			_mix->playSoundRaw(channel & 3, me->bufPtr, _freqTable[freq], vol);
 		}
 	}
 }
@@ -697,10 +700,11 @@ void Script::snd_playMusic(uint16_t resNum, uint16_t delay, uint8_t pos) {
 		if (resNum == 0) {
 			_mix->stopAifcMusic();
 		} else {
+			uint32_t offset = 0;
 			char path[MAXPATHLEN];
-			const char *p = _res->getMusicPath(resNum, path, sizeof(path));
+			const char *p = _res->getMusicPath(resNum, path, sizeof(path), &offset);
 			if (p) {
-				_mix->playAifcMusic(p);
+				_mix->playAifcMusic(p, offset);
 			}
 		}
 		break;

@@ -19,9 +19,16 @@ struct SystemStub;
 
 struct Engine {
 
+	enum {
+		kStateLogo3DO,
+		kStateTitle3DO,
+		kStateGame
+	};
+
+	int _state;
 	Graphics *_graphics;
 	SystemStub *_stub;
-	Script _log;
+	Script _script;
 	Mixer _mix;
 	Resource _res;
 	SfxPlayer _ply;
@@ -34,10 +41,17 @@ struct Engine {
 
 	const char *getGameTitle(Language lang) const { return _res.getGameTitle(lang); }
 
-	void run(Language lang);
-	void setup();
+	void run();
+	void setup(Language lang, const char *scalerName, int scalerFactor);
 	void finish();
 	void processInput();
+
+	// 3DO
+	void doThreeScreens();
+	void doEndCredits();
+	void playCinepak(const char *name);
+	void scrollText(int a, int b, const char *text);
+	void titlePage();
 	
 	void saveGameState(uint8_t slot, const char *desc);
 	void loadGameState(uint8_t slot);

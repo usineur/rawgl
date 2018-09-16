@@ -70,7 +70,7 @@ struct Texture {
 	void uploadDataRGB(const void *data, int srcPitch, int w, int h, int fmt, int type);
 	void draw(int w, int h);
 	void clear();
-	void readRaw16(const uint8_t *src, const Color *pal, int w = 320, int h = 200);
+	void readRaw16(const uint8_t *src, const Color *pal, int w, int h);
 	void readFont(const uint8_t *src);
 };
 
@@ -288,7 +288,7 @@ struct GraphicsGL : Graphics {
 	GraphicsGL();
 	virtual ~GraphicsGL() {}
 
-	virtual void init();
+	virtual void init(int targetW, int targetH);
 	virtual void setFont(const uint8_t *src, int w, int h);
 	virtual void setPalette(const Color *colors, int count);
 	virtual void setSpriteAtlas(const uint8_t *src, int w, int h, int xSize, int ySize);
@@ -300,6 +300,7 @@ struct GraphicsGL : Graphics {
 	virtual void clearBuffer(int listNum, uint8_t color);
 	virtual void copyBuffer(int dstListNum, int srcListNum, int vscroll = 0);
 	virtual void drawBuffer(int listNum, SystemStub *stub);
+	virtual void drawRect(int num, uint8_t color, const Point *pt, int w, int h);
 
 	bool initFbo();
 	void drawVerticesFlat(int count, const Point *vertices);
@@ -315,7 +316,8 @@ GraphicsGL::GraphicsGL() {
 	_sprite.num = -1;
 }
 
-void GraphicsGL::init() {
+void GraphicsGL::init(int targetW, int targetH) {
+	Graphics::init(targetW, targetH);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	glEnable(GL_BLEND);
 	glDisable(GL_DEPTH_TEST);
@@ -485,7 +487,7 @@ void GraphicsGL::drawBitmap(int listNum, const uint8_t *data, int w, int h, int 
 	_backgroundTex._fmt = fmt;
 	switch (fmt) {
 	case FMT_CLUT:
-		_backgroundTex.readRaw16(data, _pal);
+		_backgroundTex.readRaw16(data, _pal, w, h);
 		break;
 	case FMT_RGB:
 		_backgroundTex.clear();
@@ -761,6 +763,31 @@ void GraphicsGL::drawBuffer(int listNum, SystemStub *stub) {
 
 	glPopMatrix();
 	stub->updateScreen();
+}
+
+void GraphicsGL::drawRect(int num, uint8_t color, const Point *pt, int w, int h) {
+
+	// ignore 'num' target framebuffer as this is only used for the title screen with the 3DO version
+	assert(color < 16);
+	glColor4ub(_pal[color].r, _pal[color].g, _pal[color].b, 255);
+
+	glScalef((float)FB_W / SCREEN_W, (float)FB_H / SCREEN_H, 1);
+	const int x1 = pt->x;
+	const int y1 = pt->y;
+	const int x2 = x1 + w - 1;
+	const int y2 = y1 + h - 1;
+	glBegin(GL_LINES);
+		// horizontal
+		glVertex2i(x1, y1);
+		glVertex2i(x2, y1);
+		glVertex2i(x1, y2);
+		glVertex2i(x2, y2);
+		// vertical
+		glVertex2i(x1, y1);
+		glVertex2i(x1, y2);
+		glVertex2i(x2, y1);
+		glVertex2i(x2, y2);
+	glEnd();
 }
 
 Graphics *GraphicsGL_create() {

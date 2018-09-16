@@ -62,6 +62,10 @@ static bool check20th(File &f, const char *dataDir) {
 }
 
 static bool check3DO(File &f, const char *dataDir) {
+	const char *ext = strrchr(dataDir, '.');
+	if (ext && strcasecmp(ext, ".iso") == 0) {
+		return f.open(dataDir);
+	}
 	char path[MAXPATHLEN];
 	snprintf(path, sizeof(path), "%s/GameData", dataDir);
 	return f.open("File340", path);
@@ -177,8 +181,9 @@ void Resource::readEntries() {
 	} else if (_dataType == DT_3DO) {
 		_numMemList = ENTRIES_COUNT;
 		_3do = new Resource3do(_dataDir);
-		_3do->readEntries();
-		return;
+		if (_3do->readEntries()) {
+			return;
+		}
 	} else if (_dataType == DT_MAC) {
 		_numMemList = ENTRIES_COUNT;
 		_mac = new ResourceMac(_dataDir);
@@ -215,8 +220,8 @@ void Resource::dumpEntries() {
 					char name[16];
 					snprintf(name, sizeof(name), "data_%02x_%d", i, _memList[i].type);
 					dumpFile(name, p, _memList[i].unpackedSize);
-					free(p);
 				}
+				free(p);
 			}
 		}
 	}
@@ -485,14 +490,18 @@ const char *Resource::getString(int num) {
 	return 0;
 }
 
-const char *Resource::getMusicPath(int num, char *buf, int bufSize) {
+const char *Resource::getMusicPath(int num, char *buf, int bufSize, uint32_t *offset) {
 	const char *name = 0;
 	if (_nth) {
 		name = _nth->getMusicName(num);
 	} else if (_win31) {
 		name = _win31->getMusicName(num);
 	} else if (_3do) {
-		name = _3do->getMusicName(num);
+		assert(offset);
+		name = _3do->getMusicName(num, offset);
+		if (*offset != 0) {
+			return _dataDir; // playing music from .ISO
+		}
 	}
 	if (name) {
 		snprintf(buf, bufSize, "%s/%s", _dataDir, name);

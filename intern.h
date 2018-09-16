@@ -14,12 +14,26 @@
 #include <stdint.h>
 #include <sys/param.h>
 
-#undef MAX
-#define MAX(x,y) ((x)>(y)?(x):(y))
-#undef MIN
-#define MIN(x,y) ((x)<(y)?(x):(y))
 #undef ARRAYSIZE
 #define ARRAYSIZE(a) (sizeof(a)/sizeof(a[0]))
+
+#undef ABS
+template<typename T>
+inline T ABS(T v) {
+	return (v < 0) ? -v : v;
+}
+
+#undef MIN
+template<typename T>
+inline T MIN(T v1, T v2) {
+	return (v1 < v2) ? v1 : v2;
+}
+
+#undef MAX
+template<typename T>
+inline T MAX(T v1, T v2) {
+	return (v1 > v2) ? v1 : v2;
+}
 
 template<typename T>
 inline void SWAP(T &a, T &b) {
@@ -62,6 +76,17 @@ enum Language {
 	LANG_DE,
 	LANG_ES,
 	LANG_IT
+};
+
+enum {
+	kPartIntro = 16001,
+	kPartWater = 16002,
+	kPartPrison = 16003,
+	kPartCite = 16004,
+	kPartArene = 16005,
+	kPartLuxe = 16006,
+	kPartFinal = 16007,
+	kPartPassword = 16008
 };
 
 struct Ptr {
@@ -116,6 +141,11 @@ struct Frac {
 	static const int MASK = (1 << BITS) - 1;
 	uint32_t inc;
 	uint64_t offset;
+
+	void reset(int n, int d) {
+		inc = (n << BITS) / d;
+		offset = 0;
+	}
 
 	uint32_t getInt() const {
 		return offset >> BITS;

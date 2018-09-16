@@ -22,8 +22,10 @@ struct PlayerInput {
 	bool code;
 	bool pause;
 	bool quit;
+	bool back;
 	char lastChar;
 	bool fastMode;
+	bool screenshot;
 };
 
 struct DisplayMode {

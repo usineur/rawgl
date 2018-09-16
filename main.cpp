@@ -4,6 +4,7 @@
  * Copyright (C) 2004-2005 Gregory Montoir (cyx@users.sourceforge.net)
  */
 
+#include <SDL.h>
 #include <getopt.h>
 #include <sys/stat.h>
 #ifdef __SWITCH__
@@ -64,7 +65,9 @@ static Graphics *createGraphics(int type) {
 #ifndef __SWITCH__
 	case GRAPHICS_GL:
 		debug(DBG_INFO, "Using GL graphics");
+#ifdef USE_GL
 		return GraphicsGL_create();
+#endif
 #endif
 	}
 	return 0;
@@ -81,10 +84,26 @@ static int getGraphicsType(Resource::DataType type) {
 	}
 }
 
+struct Scaler {
+	char name[32];
+	int factor;
+};
+
+static void parseScaler(char *name, Scaler *s) {
+	char *sep = strchr(name, '@');
+	if (sep) {
+		*sep = 0;
+		strncpy(s->name, name, sizeof(s->name) - 1);
+		s->name[sizeof(s->name) - 1] = 0;
+	}
+	if (sep) {
+		s->factor = atoi(sep + 1);
+	}
+}
+
 static const int DEFAULT_WINDOW_W = 640;
 static const int DEFAULT_WINDOW_H = 400;
 
-#undef main
 int main(int argc, char *argv[]) {
 #ifdef __SWITCH__
 	const char *dataPath = "data";
@@ -125,6 +144,9 @@ int main(int argc, char *argv[]) {
 	dm.width  = DEFAULT_WINDOW_W;
 	dm.height = DEFAULT_WINDOW_H;
 	dm.opengl = (graphicsType == GRAPHICS_GL);
+	Scaler scaler;
+	scaler.name[0] = 0;
+	scaler.factor = 1;
 	bool defaultGraphics = true;
 	if (argc == 2) {
 		// data path as the only command line argument
@@ -142,6 +164,7 @@ int main(int argc, char *argv[]) {
 			{ "window",   required_argument, 0, 'w' },
 			{ "fullscreen", no_argument,     0, 'f' },
 			{ "fullscreen-ar", no_argument,  0, 'a' },
+			{ "scaler",   required_argument, 0, 's' },
 			{ "help",       no_argument,     0, 'h' },
 			{ 0, 0, 0, 0 }
 		};
@@ -184,6 +207,9 @@ int main(int argc, char *argv[]) {
 		case 'a':
 			dm.mode = DisplayMode::FULLSCREEN_AR;
 			break;
+		case 's':
+			parseScaler(optarg, &scaler);
+			break;
 		case 'h':
 			// fall-through
 		default:
@@ -215,7 +241,11 @@ int main(int argc, char *argv[]) {
 	SystemStub *stub = SystemStub_SDL_create();
 	stub->init(e->getGameTitle(lang), &dm);
 	e->setSystemStub(stub, graphics);
-	e->run(lang);
+	e->setup(lang, scaler.name, scaler.factor);
+	while (!stub->_pi.quit) {
+		e->run();
+	}
+	e->finish();
 	delete e;
 	stub->fini();
 	delete stub;

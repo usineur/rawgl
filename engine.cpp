@@ -12,7 +12,7 @@
 
 
 Engine::Engine(const char *dataDir, int partNum)
-	: _graphics(0), _stub(0), _log(&_mix, &_res, &_ply, &_vid), _mix(&_ply), _res(&_vid, dataDir),
+	: _graphics(0), _stub(0), _script(&_mix, &_res, &_ply, &_vid), _mix(&_ply), _res(&_vid, dataDir),
 	_ply(&_res), _vid(&_res), _partNum(partNum) {
 	_res.detectVersion();
 }
@@ -30,12 +30,52 @@ static const int _restartPos[36 * 2] = {
 
 void Engine::setSystemStub(SystemStub *stub, Graphics *graphics) {
 	_stub = stub;
-	_log._stub = stub;
+	_script._stub = stub;
 	_graphics = graphics;
 }
 
-void Engine::run(Language lang) {
-	setup();
+void Engine::run() {
+	switch (_state) {
+	case kStateLogo3DO:
+		doThreeScreens();
+		scrollText(0, 380, Video::_noteText3DO);
+		playCinepak("Logo.Cine");
+		playCinepak("Spintitle.Cine");
+		break;
+	case kStateTitle3DO:
+		titlePage();
+		break;
+	case kStateGame:
+		_script.setupTasks();
+		_script.updateInput();
+		processInput();
+		_script.runTasks();
+		_mix.update();
+		break;
+	}
+}
+
+void Engine::setup(Language lang, const char *scalerName, int scalerFactor) {
+	_vid._graphics = _graphics;
+	_graphics->init(GFX_W * scalerFactor, GFX_H * scalerFactor);
+	if (_res.getDataType() != Resource::DT_3DO) {
+		_vid._graphics->_fixUpPalette = FIXUP_PALETTE_REDRAW;
+	}
+	_vid.init();
+	if (scalerFactor > 1) {
+		_vid.setScaler(scalerName, scalerFactor);
+	}
+	_res.allocMemBlock();
+	_res.readEntries();
+	_res.dumpEntries();
+	if (_res.getDataType() == Resource::DT_15TH_EDITION || _res.getDataType() == Resource::DT_20TH_EDITION) {
+		_res.loadFont();
+		_res.loadHeads();
+	} else {
+		_vid.setDefaultFont();
+	}
+	_script.init();
+	_mix.init();
 	if (_res.getDataType() == Resource::DT_DOS || _res.getDataType() == Resource::DT_AMIGA || _res.getDataType() == Resource::DT_MAC) {
 		switch (lang) {
 		case LANG_FR:
@@ -47,40 +87,17 @@ void Engine::run(Language lang) {
 			break;
 		}
 	}
-	const int num = _partNum;
-	if (num < 36) {
-		_log.restartAt(_restartPos[num * 2], _restartPos[num * 2 + 1]);
+	if (_res.getDataType() == Resource::DT_3DO && _partNum == 16001) {
+		_state = kStateLogo3DO;
 	} else {
-		_log.restartAt(num);
+		_state = kStateGame;
+		const int num = _partNum;
+		if (num < 36) {
+			_script.restartAt(_restartPos[num * 2], _restartPos[num * 2 + 1]);
+		} else {
+			_script.restartAt(num);
+		}
 	}
-	while (!_stub->_pi.quit) {
-		_log.setupScripts();
-		_log.inp_updatePlayer();
-		processInput();
-		_log.runScripts();
-		_mix.update();
-	}
-	finish();
-}
-
-void Engine::setup() {
-	_vid._graphics = _graphics;
-	_graphics->init();
-	if (_res.getDataType() != Resource::DT_3DO) {
-		_vid._graphics->_fixUpPalette = FIXUP_PALETTE_REDRAW;
-	}
-	_vid.init();
-	_res.allocMemBlock();
-	_res.readEntries();
-	_res.dumpEntries();
-	if (_res.getDataType() == Resource::DT_15TH_EDITION || _res.getDataType() == Resource::DT_20TH_EDITION) {
-		_res.loadFont();
-		_res.loadHeads();
-	} else {
-		_vid.setDefaultFont();
-	}
-	_log.init();
-	_mix.init();
 }
 
 void Engine::finish() {
@@ -92,9 +109,77 @@ void Engine::finish() {
 
 void Engine::processInput() {
 	if (_stub->_pi.fastMode) {
-		_log._fastMode = !_log._fastMode;
+		_script._fastMode = !_script._fastMode;
 		_stub->_pi.fastMode = false;
 	}
+	if (_stub->_pi.screenshot) {
+		_vid.captureDisplay();
+		_stub->_pi.screenshot = false;
+	}
+}
+
+void Engine::doThreeScreens() {
+	_script.snd_playMusic(1, 0, 0);
+	static const int bitmaps[] = { 67, 68, 69, -1 };
+	for (int i = 0; bitmaps[i] != -1 && !_stub->_pi.quit; ++i) {
+		_res.loadBmp(bitmaps[i]);
+		_vid.updateDisplay(0, _stub);
+		while (!_stub->_pi.quit) {
+			_stub->processEvents();
+			if (_stub->_pi.button) {
+				_stub->_pi.button = false;
+				break;
+			}
+			_stub->sleep(50);
+		}
+	}
+	_state = kStateTitle3DO;
+}
+
+void Engine::doEndCredits() {
+	scrollText(0, 380, Video::_endText3DO);
+	_script.snd_playMusic(0, 0, 0);
+	playCinepak("ootw2.cine");
+}
+
+void Engine::playCinepak(const char *name) {
+}
+
+void Engine::scrollText(int a, int b, const char *text) {
+}
+
+void Engine::titlePage() {
+	_res.loadBmp(70);
+	static const int kCursorColor = 0;
+	_vid.setPaletteColor(kCursorColor, 255, 0, 0);
+	static const int yPos[] = {
+		 97, 123,
+		123, 149
+	};
+	int y = 0;
+	while (!_stub->_pi.quit) {
+		_vid.copyPage(0, 1, 0);
+		_vid.drawRect(1, kCursorColor, 97, yPos[y * 2], 210, yPos[y * 2 + 1]);
+		_stub->processEvents();
+		if (_stub->_pi.dirMask & PlayerInput::DIR_DOWN) {
+			_stub->_pi.dirMask &= ~PlayerInput::DIR_DOWN;
+			_partNum = kPartPassword;
+			y = 1;
+		}
+		if (_stub->_pi.dirMask & PlayerInput::DIR_UP) {
+			_stub->_pi.dirMask &= ~PlayerInput::DIR_UP;
+			_partNum = kPartIntro;
+			y = 0;
+		}
+		if (_stub->_pi.button) {
+			_stub->_pi.button = false;
+			_script.restartAt(_partNum);
+			break;
+		}
+		_vid.updateDisplay(1, _stub);
+		_stub->sleep(50);
+	}
+	_state = kStateGame;
 }
 
 void Engine::saveGameState(uint8_t slot, const char *desc) {

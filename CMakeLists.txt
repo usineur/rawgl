@@ -6,7 +6,7 @@ endif()
 
 project(rawgl)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SWITCH__ -DBERMUDA_POSIX -DBERMUDA_VORBIS -DBERMUDA_ZLIB -O3 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SWITCH__ -DBYPASS_PROTECTION -O3 -g")
 
 include_directories(
   ${DEVKITPRO}/portlibs/switch/include/SDL2
@@ -31,6 +31,8 @@ add_executable(${CMAKE_PROJECT_NAME}.elf
   resource_mac.cpp
   resource_nth.cpp
   resource_win31.cpp
+  scaler.cpp
+  screenshot.cpp
   script.cpp
   sfxplayer.cpp
   staticres.cpp
@@ -57,6 +59,6 @@ target_link_libraries(${CMAKE_PROJECT_NAME}.elf
 
 add_custom_target(${CMAKE_PROJECT_NAME}.nro
   DEPENDS ${CMAKE_PROJECT_NAME}.elf
-  COMMAND nacptool --create "Another World" "usineur" "1.0" ${CMAKE_PROJECT_NAME}.nacp
+  COMMAND nacptool --create "Another World" "usineur" "1.1" ${CMAKE_PROJECT_NAME}.nacp
   COMMAND elf2nro ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.nro --icon=${CMAKE_SOURCE_DIR}/res/icon.jpg --nacp=${CMAKE_PROJECT_NAME}.nacp
 )

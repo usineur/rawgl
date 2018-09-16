@@ -28,6 +28,11 @@ enum {
 	GRAPHICS_GL
 };
 
+enum {
+	GFX_W = 320,
+	GFX_H = 200
+};
+
 struct SystemStub;
 
 struct Graphics {
@@ -37,10 +42,11 @@ struct Graphics {
 	static bool _use565; // use 16bits graphics buffer (for 3DO)
 
 	int _fixUpPalette;
+	bool _screenshot;
 
 	virtual ~Graphics() {};
 
-	virtual void init() {}
+	virtual void init(int targetW, int targetH) { _screenshot = false; }
 	virtual void fini() {}
 
 	virtual void setFont(const uint8_t *src, int w, int h) = 0;
@@ -54,6 +60,7 @@ struct Graphics {
 	virtual void clearBuffer(int num, uint8_t color) = 0;
 	virtual void copyBuffer(int dst, int src, int vscroll = 0) = 0;
 	virtual void drawBuffer(int num, SystemStub *) = 0;
+	virtual void drawRect(int num, uint8_t color, const Point *pt, int w, int h) = 0;
 };
 
 Graphics *GraphicsGL_create();
