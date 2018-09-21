@@ -62,12 +62,10 @@ static Graphics *createGraphics(int type) {
 	case GRAPHICS_SOFTWARE:
 		debug(DBG_INFO, "Using software graphics");
 		return GraphicsSoft_create();
-#ifndef __SWITCH__
 	case GRAPHICS_GL:
 		debug(DBG_INFO, "Using GL graphics");
 #ifdef USE_GL
 		return GraphicsGL_create();
-#endif
 #endif
 	}
 	return 0;
@@ -106,6 +104,8 @@ static const int DEFAULT_WINDOW_H = 400;
 
 int main(int argc, char *argv[]) {
 #ifdef __SWITCH__
+	socketInitializeDefault();
+	nxlinkStdio();
 	const char *dataPath = "data";
 #else
 	char *dataPath = 0;
@@ -140,7 +140,11 @@ int main(int argc, char *argv[]) {
 #endif
 	int graphicsType = GRAPHICS_GL;
 	DisplayMode dm;
+#ifdef __SWITCH__
+	dm.mode   = DisplayMode::FULLSCREEN_AR;
+#else
 	dm.mode   = DisplayMode::WINDOWED;
+#endif
 	dm.width  = DEFAULT_WINDOW_W;
 	dm.height = DEFAULT_WINDOW_H;
 	dm.opengl = (graphicsType == GRAPHICS_GL);
@@ -219,15 +223,6 @@ int main(int argc, char *argv[]) {
 	}
 	g_debugMask = DBG_INFO; // | DBG_VIDEO | DBG_SND | DBG_SCRIPT | DBG_BANK | DBG_SER;
 	Engine *e = new Engine(dataPath, part);
-#ifdef __SWITCH__
-	graphicsType = GRAPHICS_ORIGINAL;
-	defaultGraphics = false;
-	dm.opengl = false;
-	if (e->_res.getDataType() == Resource::DT_3DO) {
-		graphicsType = GRAPHICS_SOFTWARE;
-		Graphics::_use565 = true;
-	}
-#else
 	if (defaultGraphics) {
 		// if not set, use original software graphics for 199x editions and GL for the anniversary and 3DO versions
 		graphicsType = getGraphicsType(e->_res.getDataType());
@@ -237,7 +232,6 @@ int main(int argc, char *argv[]) {
 		graphicsType = GRAPHICS_SOFTWARE;
 		Graphics::_use565 = true;
 	}
-#endif
 	Graphics *graphics = createGraphics(graphicsType);
 	SystemStub *stub = SystemStub_SDL_create();
 	stub->init(e->getGameTitle(lang), &dm);

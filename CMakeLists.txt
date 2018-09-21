@@ -6,7 +6,7 @@ endif()
 
 project(rawgl)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SWITCH__ -DBYPASS_PROTECTION -O3 -g")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D__SWITCH__ -DBYPASS_PROTECTION -DUSE_GL -O3 -g")
 
 include_directories(
   ${DEVKITPRO}/portlibs/switch/include/SDL2
@@ -17,34 +17,17 @@ link_directories(
   ${DEVKITPRO}/portlibs/switch/lib
 )
 
+file(GLOB SRCS *.cpp)
 add_executable(${CMAKE_PROJECT_NAME}.elf
-  aifcplayer.cpp
-  bitmap.cpp
-  engine.cpp
-  file.cpp
-  graphics_soft.cpp
-  main.cpp
-  mixer.cpp
-  pak.cpp
-  resource_3do.cpp
-  resource.cpp
-  resource_mac.cpp
-  resource_nth.cpp
-  resource_win31.cpp
-  scaler.cpp
-  screenshot.cpp
-  script.cpp
-  sfxplayer.cpp
-  staticres.cpp
-  systemstub_sdl.cpp
-  unpack.cpp
-  util.cpp
-  video.cpp
+  ${SRCS}
 )
 
 target_link_libraries(${CMAKE_PROJECT_NAME}.elf
   SDL2_mixer
   SDL2
+  EGL
+  glapi
+  drm_nouveau
   mpg123
   vorbisfile
   vorbis
@@ -59,6 +42,16 @@ target_link_libraries(${CMAKE_PROJECT_NAME}.elf
 
 add_custom_target(${CMAKE_PROJECT_NAME}.nro
   DEPENDS ${CMAKE_PROJECT_NAME}.elf
-  COMMAND nacptool --create "Another World" "usineur" "1.2" ${CMAKE_PROJECT_NAME}.nacp
+  COMMAND nacptool --create "Another World" "usineur" "2.0" ${CMAKE_PROJECT_NAME}.nacp
   COMMAND elf2nro ${CMAKE_PROJECT_NAME}.elf ${CMAKE_PROJECT_NAME}.nro --icon=${CMAKE_SOURCE_DIR}/res/icon.jpg --nacp=${CMAKE_PROJECT_NAME}.nacp
+)
+
+add_custom_target(send
+  COMMAND curl -T ${CMAKE_PROJECT_NAME}.nro ftp://$(SWITCHIP):5000/switch/${CMAKE_PROJECT_NAME}/
+  DEPENDS ${CMAKE_PROJECT_NAME}.nro
+)
+
+add_custom_target(nxlink
+  COMMAND nxlink -a $(SWITCHIP) ${CMAKE_PROJECT_NAME}.nro -s -p ${CMAKE_PROJECT_NAME}/${CMAKE_PROJECT_NAME}.nro
+  DEPENDS ${CMAKE_PROJECT_NAME}.nro
 )

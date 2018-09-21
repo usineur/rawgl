@@ -5,6 +5,9 @@
  */
 
 #include <SDL.h>
+#ifdef __SWITCH__
+#include "glad.h"
+#endif
 #include "graphics.h"
 #include "systemstub.h"
 #include "util.h"
@@ -76,19 +79,23 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 		flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
 	}
 #ifdef __SWITCH__
-	flags = SDL_WINDOW_FULLSCREEN;
+	if (dm->opengl) {
+		flags = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
+		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+	} else {
+		flags = SDL_WINDOW_FULLSCREEN;
+	}
 #endif
 	_window = SDL_CreateWindow(title, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, windowW, windowH, flags);
 	SDL_GetWindowSize(_window, &_w, &_h);
 
 	if (dm->opengl) {
 		_glcontext = SDL_GL_CreateContext(_window);
-	} else {
 #ifdef __SWITCH__
-		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_SOFTWARE);
-#else
-		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
+		gladLoadGLLoader(SDL_GL_GetProcAddress);
 #endif
+	} else {
+		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);
 		SDL_SetRenderDrawColor(_renderer, 0, 0, 0, 255);
 		SDL_RenderClear(_renderer);
 	}

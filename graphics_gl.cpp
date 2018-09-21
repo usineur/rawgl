@@ -6,7 +6,11 @@
 
 #include <SDL.h>
 #define GL_GLEXT_PROTOTYPES
+#ifdef __SWITCH__
+#include "glad.h"
+#else
 #include <SDL_opengl.h>
+#endif
 #include <math.h>
 #include <vector>
 #include "graphics.h"
@@ -191,6 +195,9 @@ void Texture::draw(int w, int h) {
 
 void Texture::clear() {
 	if (_id != kNoTextureId) {
+#ifdef __SWITCH__
+		glFinish();
+#endif
 		glDeleteTextures(1, &_id);
 		_id = kNoTextureId;
 	}
