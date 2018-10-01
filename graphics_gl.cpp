@@ -195,9 +195,6 @@ void Texture::draw(int w, int h) {
 
 void Texture::clear() {
 	if (_id != kNoTextureId) {
-#ifdef __SWITCH__
-		glFinish();
-#endif
 		glDeleteTextures(1, &_id);
 		_id = kNoTextureId;
 	}
