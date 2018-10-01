@@ -244,5 +244,8 @@ int main(int argc, char *argv[]) {
 	delete e;
 	stub->fini();
 	delete stub;
+#ifdef __SWITCH__
+	socketExit();
+#endif
 	return 0;
 }

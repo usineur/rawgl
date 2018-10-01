@@ -352,7 +352,7 @@ void SystemStub_SDL::processEvents() {
 					_pi.code = pressed;
 					break;
 				case BTN_PLUS:
-					_pi.pause = pressed;
+					_pi.quit = pressed;
 					break;
 				default:
 					break;
