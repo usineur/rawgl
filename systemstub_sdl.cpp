@@ -82,6 +82,8 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	if (dm->opengl) {
 		flags = SDL_WINDOW_OPENGL | SDL_WINDOW_FULLSCREEN;
 		SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+		windowW = 1280;
+		windowH = 720;
 	} else {
 		flags = SDL_WINDOW_FULLSCREEN;
 	}
