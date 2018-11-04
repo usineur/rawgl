@@ -28,12 +28,16 @@ target_link_libraries(${CMAKE_PROJECT_NAME}.elf
   EGL
   glapi
   drm_nouveau
-  mpg123
   vorbisfile
   vorbis
   ogg
+  mpg123
   modplug
   mikmod
+  fluidsynth
+  FLAC
+  opusfile
+  opus
   z
   nx
   m
