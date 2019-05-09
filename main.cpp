@@ -103,9 +103,11 @@ static const int DEFAULT_WINDOW_W = 640;
 static const int DEFAULT_WINDOW_H = 400;
 
 int main(int argc, char *argv[]) {
-#ifdef __SWITCH__
+#ifdef NXLINK
 	socketInitializeDefault();
 	nxlinkStdio();
+#endif
+#ifdef __SWITCH__
 	const char *dataPath = "data";
 #else
 	char *dataPath = 0;
@@ -244,7 +246,7 @@ int main(int argc, char *argv[]) {
 	delete e;
 	stub->fini();
 	delete stub;
-#ifdef __SWITCH__
+#ifdef NXLINK
 	socketExit();
 #endif
 	return 0;
