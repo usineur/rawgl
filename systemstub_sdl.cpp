@@ -6,7 +6,7 @@
 
 #include <SDL.h>
 #ifdef __SWITCH__
-#include "glad.h"
+#include <GL/glew.h>
 #endif
 #include "graphics.h"
 #include "systemstub.h"
@@ -92,7 +92,10 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 	if (dm->opengl) {
 		_glcontext = SDL_GL_CreateContext(_window);
 #ifdef __SWITCH__
-		gladLoadGLLoader(SDL_GL_GetProcAddress);
+		GLenum err = glewInit();
+		if (err != GLEW_OK) {
+			error("glewInit() failed: %s\n", glewGetErrorString(err));
+		}
 #endif
 	} else {
 		_renderer = SDL_CreateRenderer(_window, -1, SDL_RENDERER_ACCELERATED);

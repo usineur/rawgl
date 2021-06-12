@@ -115,12 +115,12 @@ int main(int argc, char *argv[]) {
 	int part = 16001;
 #ifdef __SWITCH__
 	Language lang;
-	u64 tlc = 0;
-	s32 lc = 0;
+	u64 languageCode = 0;
+	SetLanguage language = SetLanguage_ENUS;
 	setInitialize();
-	setGetSystemLanguage(&tlc);
-	setMakeLanguage(tlc, &lc);
-	switch (lc) {
+	setGetSystemLanguage(&languageCode);
+	setMakeLanguage(languageCode, &language);
+	switch (language) {
 	case SetLanguage_FR:
 		lang = LANG_FR;
 		break;

@@ -7,7 +7,7 @@
 #include <SDL.h>
 #define GL_GLEXT_PROTOTYPES
 #ifdef __SWITCH__
-#include "glad.h"
+#include <GL/glew.h>
 #else
 #include <SDL_opengl.h>
 #endif
