@@ -62,10 +62,12 @@ static Graphics *createGraphics(int type) {
 	case GRAPHICS_SOFTWARE:
 		debug(DBG_INFO, "Using software graphics");
 		return GraphicsSoft_create();
+#ifndef __vita__
 	case GRAPHICS_GL:
 		debug(DBG_INFO, "Using GL graphics");
 #ifdef USE_GL
 		return GraphicsGL_create();
+#endif
 #endif
 	}
 	return 0;

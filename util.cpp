@@ -7,6 +7,12 @@
 #include <cstdarg>
 #include "util.h"
 
+#ifdef __vita__
+#include <psp2/kernel/clib.h>
+#define printf sceClibPrintf
+#define fprintf(x, ...) sceClibPrintf(__VA_ARGS__)
+#endif
+
 uint16_t g_debugMask;
 
 void debug(uint16_t cm, const char *msg, ...) {

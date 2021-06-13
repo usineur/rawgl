@@ -9,6 +9,21 @@
 #include "systemstub.h"
 #include "util.h"
 
+#ifdef __vita__
+#define BTN_TRIANGLE 0
+#define BTN_CIRCLE 1
+#define BTN_CROSS 2
+#define BTN_SQUARE 3
+#define BTN_LTRIGGER 4
+#define BTN_RTRIGGER 5
+#define BTN_DOWN 6
+#define BTN_LEFT 7
+#define BTN_UP 8
+#define BTN_RIGHT 9
+#define BTN_SELECT 10
+#define BTN_START 11
+#endif
+
 struct SystemStub_SDL : SystemStub {
 
 	static const int kJoystickIndex = 0;
@@ -93,7 +108,11 @@ void SystemStub_SDL::init(const char *title, const DisplayMode *dm) {
 #endif
 
 		if (SDL_IsGameController(kJoystickIndex)) {
+#ifdef __vita__
+			_controller = 0;
+#else
 			_controller = SDL_GameControllerOpen(kJoystickIndex);
+#endif
 		}
 		if (!_controller) {
 			_joystick = SDL_JoystickOpen(kJoystickIndex);
@@ -170,7 +189,18 @@ void SystemStub_SDL::setScreenPixels555(const uint16_t *data, int w, int h) {
 			r.y = 0;
 		}
 		SDL_UpdateTexture(_texture, &r, data, w * sizeof(uint16_t));
+#ifdef __vita__
+		float dh = 544. / GFX_H;
+		float dw = 960. / GFX_W;
+		SDL_Rect s;
+		s.h = dh * r.h;
+		s.w = (float)r.w * ((float)s.h / (float)r.h);
+		s.y = dh * r.y;
+		s.x = (dw * r.w - s.w) / 2 + dw * r.x;
+		SDL_RenderCopy(_renderer, _texture, &r, &s);
+#else
 		SDL_RenderCopy(_renderer, _texture, 0, 0);
+#endif
 	}
 }
 
@@ -271,6 +301,7 @@ void SystemStub_SDL::processEvents() {
 			}
 			break;
 		case SDL_JOYHATMOTION:
+#ifndef __vita__
 			if (_joystick) {
 				_pi.dirMask = 0;
 				if (ev.jhat.value & SDL_HAT_UP) {
@@ -286,8 +317,10 @@ void SystemStub_SDL::processEvents() {
 					_pi.dirMask |= PlayerInput::DIR_RIGHT;
 				}
 			}
+#endif
 			break;
 		case SDL_JOYAXISMOTION:
+#ifndef __vita__
 			if (_joystick) {
 				switch (ev.jaxis.axis) {
 				case 0:
@@ -308,11 +341,56 @@ void SystemStub_SDL::processEvents() {
 					break;
 				}
 			}
+#endif
 			break;
 		case SDL_JOYBUTTONDOWN:
 		case SDL_JOYBUTTONUP:
 			if (_joystick) {
+#ifdef __vita__
+				const bool pressed = (ev.jbutton.state == SDL_PRESSED);
+				switch (ev.jbutton.button) {
+				case BTN_LEFT:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_LEFT;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_LEFT;
+					break;
+				case BTN_RIGHT:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_RIGHT;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_RIGHT;
+					break;
+				case BTN_UP:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_UP;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_UP;
+					break;
+				case BTN_DOWN:
+					if (pressed)
+						_pi.dirMask |= PlayerInput::DIR_DOWN;
+					else
+						_pi.dirMask &= ~PlayerInput::DIR_DOWN;
+					break;
+				case BTN_CROSS:
+					_pi.action = pressed;
+					break;
+				case BTN_CIRCLE:
+					_pi.jump = pressed;
+					break;
+				case BTN_SELECT:
+					_pi.code = pressed;
+					break;
+				case BTN_START:
+					_pi.pause = pressed;
+					break;
+				default:
+					break;
+				}
+#else
 				_pi.action = (ev.jbutton.state == SDL_PRESSED);
+#endif
 			}
 			break;
 		case SDL_CONTROLLERAXISMOTION:
